@@ -59,6 +59,8 @@ def crossVariable(df1,varlist=None):
             df[comb[0] + "_" + comb[1] + "d"] = df1[comb[0]] / df1[comb[1]]
         except ZeroDivisionError:
             df[comb[0] + "_" + comb[1] + "d"]=np.nan
+        except TypeError:
+            pass
 
     return df.replace(np.inf,np.nan)
 def isPrimaryKey(df,varList):
