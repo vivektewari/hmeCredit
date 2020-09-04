@@ -29,19 +29,20 @@ def calculate_woe_iv(dataset, feature, target):
 from sklearn.preprocessing import OneHotEncoder
 
 
-def binning(df, target, qCut=10, maxobjectFeatures=50):
+def binning(df, target=None, qCut=10, maxobjectFeatures=50,varCatConvert=0):
     output = pd.DataFrame(index=df.index, columns=[])
 
     objectCols = list(df.select_dtypes(include=['object']).columns)
     allCols = df.columns
-    numCols = set(allCols) - set(objectCols) - set([target])
+    numCols = set(allCols) - set(objectCols)
+    if target is not None:numCols-set([target])
     uniques = pd.DataFrame({'nuniques': df[numCols].nunique()}, index=df[numCols].columns.values)
     numCats = list(uniques[uniques['nuniques'] < 50].index)
     catCols = objectCols + numCats
     contCols = list(set(allCols) - set(catCols))
     for feature in contCols:
         temp = df[[feature]]
-        print(feature)
+        #print(feature)
         missings = temp[temp.isnull().any(axis=1)]  # 'getting missing dataset'
         missings["n_" + feature] = 'Missing'
 
@@ -65,32 +66,38 @@ def binning(df, target, qCut=10, maxobjectFeatures=50):
             print("removed as too many categories:" + feature)
         else:
             output = output.join(temp.drop(feature, axis=1))
+    if varCatConvert==1: return output
     for col in output.columns:
         # X[col] = X[col].astype('category',copy=False)
         dummies = pd.get_dummies(output[col], prefix=col + '___')
         output = pd.concat([output, dummies], axis=1)
         output = output.drop(col, axis=1)
-    output = output.join(df[[target]])
+    if target is not None:output = output.join(df[[target]])
     return output
 
 
-def iv_all(X,target):
+def iv_all(X,target,modeBinary=1):
     rowCount=X.shape[0]
 
     ivData=pd.DataFrame(index=X.columns,columns=['ivValue','WoE','Dist_Good','Dist_Bad','%popuation','badRate','variable'])
     for col in X.columns:
         if col == target: continue
         else:
-            print('WoE and IV for column: {}'.format(col))
+            #print('WoE and IV for column: {}'.format(col))
             df, iv = calculate_woe_iv(X[[col,target]], col, target)
-            df.index=df.Value
-            #print(df)
-            ivData['ivValue'][col]=df['IV'][1]
-            ivData['Dist_Good'][col] = df['Distr_Good'][1]
-            ivData['Dist_Bad'][col] = df['Distr_Bad'][1]
-            ivData['WoE'][col] = df['WoE'][1]
-            ivData['badRate'][col] = df['Bad'][1] / float(df['All'][1])
-            ivData['%popuation'][col] = df['All'][1]/rowCount
-            ivData['variable'][col]=col.split('___')[0]
+            if modeBinary==0:
+                ivData['ivValue'][col] = iv
+                ivData['variable'][col] = col.split('___')[0]
+
+            else:
+                df.index=df.Value
+                #print(df)
+                ivData['ivValue'][col]=df['IV'][1]
+                ivData['Dist_Good'][col] = df['Distr_Good'][1]
+                ivData['Dist_Bad'][col] = df['Distr_Bad'][1]
+                ivData['WoE'][col] = df['WoE'][1]
+                ivData['badRate'][col] = df['Bad'][1] / float(df['All'][1])
+                ivData['%popuation'][col] = df['All'][1]/rowCount
+                ivData['variable'][col]=col.split('___')[0]
 
     return ivData

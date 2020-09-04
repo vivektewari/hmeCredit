@@ -4,11 +4,11 @@ from iv import iv_all,binning
 import pandas as pd
 from pandas.core.common import SettingWithCopyWarning
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
-#loc="/home/pooja/PycharmProjects/datanalysi1s"
-#train=pd.read_csv(loc+"rawDatas"+"train.csv")
-loc="/home/pooja/PycharmProjects/datanalysis/bureau/"
-train=pd.read_csv(loc+"bur.csv")
-a=plotGrabh(train,'TARGET',loc+"images/")
+loc="/home/pooja/PycharmProjects/datanalysis/"
+train=pd.read_csv(loc+"relevantDatasets/"+"train.csv")
+#loc="/home/pooja/PycharmProjects/datanalysis/bureau/"
+#train=pd.read_csv(loc+"bur.csv")
+#a=plotGrabh(train,'TARGET',loc+"images/")
 binned=binning(train,'TARGET')
 
 ivData=iv_all(binned,'TARGET')

@@ -1,6 +1,15 @@
 import numpy as np
+import pandas as pd
 from itertools import combinations
 from sklearn.metrics import roc_curve, auc
+from multiprocessing import Pool, Process, cpu_count, Manager
+from iv import iv_all,binning
+import time
+import random
+from os import path
+import gc
+import warnings
+warnings.filterwarnings("ignore")
 
 import matplotlib.pyplot as plt
 def RMSE(dataset,actual,predicted):
@@ -43,26 +52,81 @@ def aggregation(df1, rollupKey ='', monthVar='', aggFunc={}, monthList=[12, 36, 
         df_uniques=df_uniques.join(df_temp,on=[rollupKey])
 
     return df_uniques.fillna(0)
-def crossVariable(df1,varlist=None):
+def crossVariable(df1,combination=None,target=None,varlist=None,ignoreList=None):
     if varlist==None:varlist=df1.columns
+    elif ignoreList==None:varlist=list(set(df1.columns)-set(ignoreList))
     df=df1[[]]
-    combs=combinations(varlist, 2)
+    if combination is None:combs=combinations(varlist, 2)
+    else:combs=combination
     for comb in combs:
-        print(comb[0] + "_" + comb[1] + "m")
-        try:
-            df[comb[0]+"_"+comb[1]+"m"]=df1[comb[0]]*df1[comb[1]]
-        except TypeError:
-            df[comb[0] + "_" + comb[1] + "m"] = df1[comb[0]] + df1[comb[1]]
+        #print(comb[0] + "_" + comb[1] +"_c")
+        df[comb[0] + "_&_" + comb[1] ] = df1[comb[0]] + "_&_"+df1[comb[1]]
+        # try:
+        #     #df[comb[0]+"_"+comb[1]+"m"]=df1[comb[0]]*df1[comb[1]]
+        # except TypeError:
+        #     #df[comb[0] + "_" + comb[1] + "m"] = df1[comb[0]] + df1[comb[1]]
+        #
+        # try:
+        #     df[comb[0] + "_" + comb[1] + "d"] = df1[comb[0]] / df1[comb[1]]
+        # except ZeroDivisionError:
+        #     df[comb[0] + "_" + comb[1] + "d"]=np.nan
+        # except TypeError:
+        #     pass
+    if target is not None:df[target]=df1[target]
+    return df #.replace(np.inf,np.nan)
+#low ram
 
+def jugad(df1,combination,target,number,loc):
+    temp=crossVariable(df1,combination,target=target,varlist=None,ignoreList=None)
+    #temp['TARGET']=[random.randint(0, 1) for i in range(temp.shape[0])]
+    ivData = iv_all(temp, target,modeBinary=0)
+    #print("close")
+    ivData.groupby('variable')['ivValue'].sum().to_csv(loc+str(number)+".csv",mode = 'a', header = False)
 
-        try:
-            df[comb[0] + "_" + comb[1] + "d"] = df1[comb[0]] / df1[comb[1]]
-        except ZeroDivisionError:
-            df[comb[0] + "_" + comb[1] + "d"]=np.nan
-        except TypeError:
-            pass
+def crossVariablelowRam(df1,train,varlist=None,ignoreList=None,target=None,batch=10,loc=None):
+    start = time.time()
+    outputFile=pd.DataFrame(columns =['ivValue'])
+    for i in range(batch):outputFile.to_csv(loc+str(i)+".csv")
+    cores=cpu_count()
+    pool = Pool(processes=cores)
+    if varlist is None:varlist=df1.columns
+    combs = combinations(varlist, 2)
+    if ignoreList is not None:varlist=list(set(df1.columns)-set(ignoreList))
+    total_cross=len(list(combs))
+    numberOfBatches=int(total_cross/batch)
+    coreNum=0
+    binned = binning(df1,  qCut=10, maxobjectFeatures=50,varCatConvert=1)
+    binned = binned.astype(str)
+    binned=binned.join(train[[target]])
+    #print(binned.dtypes)
+    print(numberOfBatches)
+    binned.columns=[ col.replace('n_',"").replace('c_',"") for col in binned.columns]
+    combs = list(combinations(varlist, 2))
+    i=0
+    for i in range(0,numberOfBatches):
+        cross=combs[i*batch:i*batch+batch]
+        vars=list(set([com[0] for com in cross]).union(set([com[1] for com in cross])))+[target]
+        pool.apply_async(jugad,args=(binned[vars],cross,target,i%batch,loc))
+        print(i)
+        coreNum=coreNum+1
+        gc.collect()
+    cross = combs[i * batch:total_cross]
+    vars = list(set([com[0] for com in cross]).union(set([com[1] for com in cross]))) + [target]
+    pool.apply_async(jugad, args=(binned[vars], cross, target, i % batch, loc))
 
-    return df.replace(np.inf,np.nan)
+    pool.close()
+    pool.join()
+    end = time.time()
+    print(end - start)
+#s_POS_CASH_balance=pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets//POS_CASH_balance.csv")
+data = pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets/train.csv")
+target=data.set_index('SK_ID_CURR')[['TARGET']]
+data=data[['EXT_SOURCE_3','EXT_SOURCE_2','EXT_SOURCE_1','TARGET','SK_ID_CURR']]
+data['check']=1
+#s_POS_CASH_balance=s_POS_CASH_balance.join(data[['SK_ID_CURR','TARGET']].st_index('SK_ID_CURR'),on='SK_ID_CURR')
+x=crossVariablelowRam(data.drop('TARGET',axis=1).set_index('SK_ID_CURR'),target,ignoreList=['SK_ID_PREV','Unnamed: 0','SK_ID_CURR','TARGET'],target='TARGET',batch=10,loc="/home/pooja/PycharmProjects/datanalysis/featureEngeering/train")
+#q=past(s_POS_CASH_balance,'SK_ID_CURR','MONTHS_BALANCE')
+
 def isPrimaryKey(df,varList):
     """
 
