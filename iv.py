@@ -29,7 +29,7 @@ def calculate_woe_iv(dataset, feature, target):
 from sklearn.preprocessing import OneHotEncoder
 
 
-def binning(df, target=None, qCut=10, maxobjectFeatures=50,varCatConvert=0):
+def binning(df, target=None, qCut=10, maxobjectFeatures=50,varCatConvert=0,excludedList=[]):
     output = pd.DataFrame(index=df.index, columns=[])
 
     objectCols = list(df.select_dtypes(include=['object']).columns)
@@ -63,6 +63,7 @@ def binning(df, target=None, qCut=10, maxobjectFeatures=50,varCatConvert=0):
         temp = temp.fillna('Missing')
         temp["c_" + feature] = temp[feature]
         if temp[feature].nunique() > maxobjectFeatures:
+            excludedList.append(feature)
             print("removed as too many categories:" + feature)
         else:
             output = output.join(temp.drop(feature, axis=1))

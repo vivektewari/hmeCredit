@@ -92,10 +92,14 @@ def crossVariablelowRam(df1,train,varlist=None,ignoreList=None,target=None,batch
     if varlist is None:varlist=df1.columns
     combs = combinations(varlist, 2)
     if ignoreList is not None:varlist=list(set(df1.columns)-set(ignoreList))
-    total_cross=len(list(combs))
-    numberOfBatches=int(total_cross/batch)
+
     coreNum=0
-    binned = binning(df1,  qCut=10, maxobjectFeatures=50,varCatConvert=1)
+    excludes=[]
+    binned = binning(df1,  qCut=10, maxobjectFeatures=50,varCatConvert=1,excludedList=excludes)
+    varlist=list(set(varlist)-set(excludes))
+    combs = combinations(varlist, 2)
+    total_cross = len(list(combs))
+    numberOfBatches = int(total_cross / batch)
     binned = binned.astype(str)
     binned=binned.join(train[[target]])
     #print(binned.dtypes)
@@ -103,7 +107,7 @@ def crossVariablelowRam(df1,train,varlist=None,ignoreList=None,target=None,batch
     binned.columns=[ col.replace('n_',"").replace('c_',"") for col in binned.columns]
     combs = list(combinations(varlist, 2))
     i=0
-    for i in range(0,numberOfBatches):
+    for i in range(0,16):
         cross=combs[i*batch:i*batch+batch]
         vars=list(set([com[0] for com in cross]).union(set([com[1] for com in cross])))+[target]
         pool.apply_async(jugad,args=(binned[vars],cross,target,i%batch,loc))
@@ -121,8 +125,8 @@ def crossVariablelowRam(df1,train,varlist=None,ignoreList=None,target=None,batch
 #s_POS_CASH_balance=pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets//POS_CASH_balance.csv")
 data = pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets/train.csv")
 target=data.set_index('SK_ID_CURR')[['TARGET']]
-data=data[['EXT_SOURCE_3','EXT_SOURCE_2','EXT_SOURCE_1','TARGET','SK_ID_CURR']]
-data['check']=1
+#data=data[['EXT_SOURCE_3','EXT_SOURCE_2','EXT_SOURCE_1','TARGET','SK_ID_CURR']]
+#data['check']=1
 #s_POS_CASH_balance=s_POS_CASH_balance.join(data[['SK_ID_CURR','TARGET']].st_index('SK_ID_CURR'),on='SK_ID_CURR')
 x=crossVariablelowRam(data.drop('TARGET',axis=1).set_index('SK_ID_CURR'),target,ignoreList=['SK_ID_PREV','Unnamed: 0','SK_ID_CURR','TARGET'],target='TARGET',batch=10,loc="/home/pooja/PycharmProjects/datanalysis/featureEngeering/train")
 #q=past(s_POS_CASH_balance,'SK_ID_CURR','MONTHS_BALANCE')
