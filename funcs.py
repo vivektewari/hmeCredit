@@ -52,84 +52,117 @@ def aggregation(df1, rollupKey ='', monthVar='', aggFunc={}, monthList=[12, 36, 
         df_uniques=df_uniques.join(df_temp,on=[rollupKey])
 
     return df_uniques.fillna(0)
-def crossVariable(df1,combination=None,target=None,varlist=None,ignoreList=None):
+def crossVariable(df1,combination=None,target=None,varlist=None,ignoreList=None,numVar=0):
     if varlist==None:varlist=df1.columns
     elif ignoreList==None:varlist=list(set(df1.columns)-set(ignoreList))
     df=df1[[]]
     if combination is None:combs=combinations(varlist, 2)
     else:combs=combination
     for comb in combs:
-        #print(comb[0] + "_" + comb[1] +"_c")
-        df[comb[0] + "_&_" + comb[1] ] = df1[comb[0]] + "_&_"+df1[comb[1]]
+        if numVar !=1:
+            df[comb[0] + "_&_" + comb[1] ] = df1[comb[0]] + "_&_"+df1[comb[1]]
+        elif numVar==1:
         # try:
-        #     #df[comb[0]+"_"+comb[1]+"m"]=df1[comb[0]]*df1[comb[1]]
+        #     df[comb[0]+"_"+comb[1]+"m"]=df1[comb[0]]*df1[comb[1]]
         # except TypeError:
-        #     #df[comb[0] + "_" + comb[1] + "m"] = df1[comb[0]] + df1[comb[1]]
-        #
-        # try:
-        #     df[comb[0] + "_" + comb[1] + "d"] = df1[comb[0]] / df1[comb[1]]
-        # except ZeroDivisionError:
-        #     df[comb[0] + "_" + comb[1] + "d"]=np.nan
-        # except TypeError:
-        #     pass
+        #     df[comb[0] + "_" + comb[1] + "m"] = df1[comb[0]] + df1[comb[1]]
+            try:
+                df[comb[0] + "_" + comb[1] + "d"] = df1[comb[0]] / df1[comb[1]]
+            except ZeroDivisionError:
+                df[comb[0] + "_" + comb[1] + "d"]=np.nan
+            except TypeError:
+                pass
     if target is not None:df[target]=df1[target]
     return df #.replace(np.inf,np.nan)
 #low ram
 
-def jugad(df1,combination,target,number,loc):
-    temp=crossVariable(df1,combination,target=target,varlist=None,ignoreList=None)
-    #temp['TARGET']=[random.randint(0, 1) for i in range(temp.shape[0])]
-    ivData = iv_all(temp, target,modeBinary=0)
-    #print("close")
+def getIVForCross(df1, combination, target, number, loc,groupByKey=None):
+
+
+    if groupByKey is not None:
+        temp = crossVariable(df1, combination, target=target, varlist=None, ignoreList=None,numVar=1)
+        #temp=temp.fillna(-579579)
+        temp=temp.groupby(groupByKey).agg(['min', 'max','sum','mean'])
+        temp.columns = [str("_").join(col).strip() for col in temp.columns.values]
+        temp=temp.drop([target+"_"+ f for f in ['min', 'max','sum']],axis=1)
+        temp.rename(columns = {target+"_mean":target}, inplace = True)
+        binned = binning(temp, target,qCut=10, maxobjectFeatures=50,varCatConvert=1)
+        ivData = iv_all(binned, target,modeBinary=0)
+    else:
+        temp = crossVariable(df1, combination, target=target, varlist=None, ignoreList=None)
+        ivData = iv_all(temp, target,modeBinary=0)
     ivData.groupby('variable')['ivValue'].sum().to_csv(loc+str(number)+".csv",mode = 'a', header = False)
 
-def crossVariablelowRam(df1,train,varlist=None,ignoreList=None,target=None,batch=10,loc=None):
+def crossVariablelowRam(df1,train=None,varlist=None,ignoreList=None,target=None,batch=10,loc=None,groupByKey=None):
+    """
+
+    :param df1: dataframe|df for which cross variable to be calculated
+    :param train: dataframe|dataframe containing target variable. Only needed if IV needs to be calculated
+    :param varlist: string list|variables in df1 for which cross will be calculated. If None then all variables of dataframe will be considered
+    :param ignoreList:string list| varibles which will not be considered fr cross vars
+    :param target: string|target variable
+    :param batch: int|for parallel processing how many combination will be parrallely processed
+    :param loc: string|where all the outputs will be made
+    :param groupByKey: string| key with which groupBy to be done before IV calculation .Only applicable for numeric variable
+    :return: CSV file| a file consisting of all the cross variable and its IV value
+    """
     start = time.time()
     outputFile=pd.DataFrame(columns =['ivValue'])
     for i in range(batch):outputFile.to_csv(loc+str(i)+".csv")
-    cores=cpu_count()
+    cores=4
     pool = Pool(processes=cores)
     if varlist is None:varlist=df1.columns
-    combs = combinations(varlist, 2)
     if ignoreList is not None:varlist=list(set(df1.columns)-set(ignoreList))
-
     coreNum=0
     excludes=[]
-    binned = binning(df1,  qCut=10, maxobjectFeatures=50,varCatConvert=1,excludedList=excludes)
-    varlist=list(set(varlist)-set(excludes))
+    if groupByKey is None:
+        binned = binning(df1,  qCut=10, maxobjectFeatures=50,varCatConvert=1,excludedList=excludes)
+        varlist=list(set(varlist)-set(excludes))
+        binned = binned.astype(str)
+        binned.columns = [col.replace('n_', "").replace('c_', "") for col in binned.columns]
+
+    else:
+        objectCols = list(df1.select_dtypes(include=['object']).columns)
+        varlist = list(set(varlist) - set(objectCols))
+        binned=df1[varlist]
     combs = combinations(varlist, 2)
     total_cross = len(list(combs))
     numberOfBatches = int(total_cross / batch)
-    binned = binned.astype(str)
     binned=binned.join(train[[target]])
     #print(binned.dtypes)
     print(numberOfBatches)
-    binned.columns=[ col.replace('n_',"").replace('c_',"") for col in binned.columns]
     combs = list(combinations(varlist, 2))
     i=0
-    for i in range(0,16):
+    for i in range(0,numberOfBatches):
         cross=combs[i*batch:i*batch+batch]
         vars=list(set([com[0] for com in cross]).union(set([com[1] for com in cross])))+[target]
-        pool.apply_async(jugad,args=(binned[vars],cross,target,i%batch,loc))
-        print(i)
+        pool.apply_async(getIVForCross, args=(binned[vars], cross, target, i % batch, loc,groupByKey ))
+        #print(i)
         coreNum=coreNum+1
-        gc.collect()
+        #gc.collect()
+        if i%int(batch/2)==0:#used so that limited process run in memmory. So batch should be cosen considering availibilty of memmory
+            pool.close()
+            pool.join()
+            print(i)
+            pool = Pool(processes=cores)
+
+
     cross = combs[i * batch:total_cross]
     vars = list(set([com[0] for com in cross]).union(set([com[1] for com in cross]))) + [target]
-    pool.apply_async(jugad, args=(binned[vars], cross, target, i % batch, loc))
+    pool.apply_async(getIVForCross, args=(binned[vars], cross, target, i % batch, loc,groupByKey))
 
     pool.close()
     pool.join()
+    for i in range(batch):
+        if i == 0:
+            main = pd.read_csv(loc + str(i) + ".csv")
+            main.to_csv(loc + ".csv")
+        else:
+            main = pd.read_csv(loc+ str(i) + ".csv")
+            main.to_csv(loc+ ".csv", mode='a',header=False)
     end = time.time()
-    print(end - start)
-#s_POS_CASH_balance=pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets//POS_CASH_balance.csv")
-data = pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets/train.csv")
-target=data.set_index('SK_ID_CURR')[['TARGET']]
-#data=data[['EXT_SOURCE_3','EXT_SOURCE_2','EXT_SOURCE_1','TARGET','SK_ID_CURR']]
-#data['check']=1
-#s_POS_CASH_balance=s_POS_CASH_balance.join(data[['SK_ID_CURR','TARGET']].st_index('SK_ID_CURR'),on='SK_ID_CURR')
-x=crossVariablelowRam(data.drop('TARGET',axis=1).set_index('SK_ID_CURR'),target,ignoreList=['SK_ID_PREV','Unnamed: 0','SK_ID_CURR','TARGET'],target='TARGET',batch=10,loc="/home/pooja/PycharmProjects/datanalysis/featureEngeering/train")
-#q=past(s_POS_CASH_balance,'SK_ID_CURR','MONTHS_BALANCE')
+    print("total Time taken" +str((end - start)/60))
+
 
 def isPrimaryKey(df,varList):
     """
