@@ -31,11 +31,11 @@ from sklearn.preprocessing import OneHotEncoder
 
 def binning(df, target=None, qCut=10, maxobjectFeatures=50,varCatConvert=0,excludedList=[]):
     output = pd.DataFrame(index=df.index, columns=[])
-
+    df=df.replace(np.inf,np.nan)
     objectCols = list(df.select_dtypes(include=['object']).columns)
     allCols = df.columns
     numCols = set(allCols) - set(objectCols)
-    if target is not None:numCols-set([target])
+    if target is not None:numCols=numCols-set([target])
     uniques = pd.DataFrame({'nuniques': df[numCols].nunique()}, index=df[numCols].columns.values)
     numCats = list(uniques[uniques['nuniques'] < 50].index)
     catCols = objectCols + numCats

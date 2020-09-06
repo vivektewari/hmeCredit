@@ -35,10 +35,14 @@ def deliquency(df1,rol,del_Var,monthVar, monthList=[12, 36, 120]):
 
     return final.reset_index()
 
-def normalize(train,test):
+def normalize(train,test=None):
+        #l=train.mean()
         normalized_train=(train-train.mean())/train.std()
-        normalized_test = (test - train.mean()) / train.std()
-        return normalized_train,normalized_test
+        if test is not None:
+            normalized_test = (test - train.mean()) / train.std()
+            return normalized_train,normalized_test
+        return normalized_train
+
 
 def aggregation(df1, rollupKey ='', monthVar='', aggFunc={}, monthList=[12, 36, 120]):#monh closeset is nbiggest
     df = df1.copy()
@@ -62,15 +66,17 @@ def crossVariable(df1,combination=None,target=None,varlist=None,ignoreList=None,
         if numVar !=1:
             df[comb[0] + "_&_" + comb[1] ] = df1[comb[0]] + "_&_"+df1[comb[1]]
         elif numVar==1:
-        # try:
-        #     df[comb[0]+"_"+comb[1]+"m"]=df1[comb[0]]*df1[comb[1]]
-        # except TypeError:
-        #     df[comb[0] + "_" + comb[1] + "m"] = df1[comb[0]] + df1[comb[1]]
             try:
-                df[comb[0] + "_" + comb[1] + "d"] = df1[comb[0]] / df1[comb[1]]
-            except ZeroDivisionError:
-                df[comb[0] + "_" + comb[1] + "d"]=np.nan
+                df[comb[0]+"_&_"+comb[1]+"m"]=df1[comb[0]]*df1[comb[1]]
             except TypeError:
+                print(comb[0]+"_&_"+comb[1]+"m")
+                pass
+            try:
+                df[comb[0] + "_&_"+ comb[1] + "d"] = df1[comb[0]] / df1[comb[1]]
+            except ZeroDivisionError:
+                df[comb[0] + "_&_" + comb[1] + "d"]=np.nan
+            except TypeError:
+                print(comb[0] + "_&_" + comb[1] + "m")
                 pass
     if target is not None:df[target]=df1[target]
     return df #.replace(np.inf,np.nan)
@@ -109,7 +115,7 @@ def crossVariablelowRam(df1,train=None,varlist=None,ignoreList=None,target=None,
     start = time.time()
     outputFile=pd.DataFrame(columns =['ivValue'])
     for i in range(batch):outputFile.to_csv(loc+str(i)+".csv")
-    cores=4
+    cores=cpu_count()
     pool = Pool(processes=cores)
     if varlist is None:varlist=df1.columns
     if ignoreList is not None:varlist=list(set(df1.columns)-set(ignoreList))

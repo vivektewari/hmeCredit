@@ -12,7 +12,7 @@ if not os.path.exists(dLoc): os.mkdir(dLoc)
 
 
 relevant=pd.read_csv(sLoc+'application_train.csv')
-#relevant=relevant.sample()
+#relevant=relevant.sample(n=100000)
 #relevant.to_csv(dLoc+'test.csv')
 relevant=relevant[[pk]]
 
@@ -21,13 +21,13 @@ final=pd.DataFrame()
 for dataset in datasetNames:
     data=pd.read_csv(sLoc+dataset)
     data = data[data[pk].isin(relevant[pk])]
-    #data.to_csv(dLoc+dataset)
+    data.to_csv(dLoc+dataset)
     temp=distReports(data)
-    temp['dataset']=dataset
-    temp['floor']=579579579
-    temp['cap']=579579579
-    temp['mis']=579579579
-    final=final.append(temp)
+    # temp['dataset']=dataset
+    # temp['floor']=579579579
+    # temp['cap']=579579579
+    # temp['mis']=579579579
+    # final=final.append(temp)
 pk='SK_ID_BUREAU'
 bureau=data[[pk]]
 dataset='bureau_balance.csv'
@@ -41,4 +41,4 @@ temp['cap'] = 579579579
 temp['mis'] = 579579579
 final = final.append(temp)
 final=final.reindex(['dataset','varName','floor','cap','mis']+list(set(final.columns)-set(['dataset','varName','floor','cap','mis'])),axis=1)
-final.to_csv(testLoc + "allDescribe.csv")
+#final.to_csv(testLoc + "allDescribe.csv")
