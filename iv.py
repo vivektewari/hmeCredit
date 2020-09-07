@@ -26,7 +26,7 @@ def calculate_woe_iv(dataset, feature, target):
     return dset, iv
 
 
-from sklearn.preprocessing import OneHotEncoder
+
 
 
 def binning(df, target=None, qCut=10, maxobjectFeatures=50,varCatConvert=0,excludedList=[]):
@@ -67,7 +67,7 @@ def binning(df, target=None, qCut=10, maxobjectFeatures=50,varCatConvert=0,exclu
             print("removed as too many categories:" + feature)
         else:
             output = output.join(temp.drop(feature, axis=1))
-    if varCatConvert==1: return output.join(df[[target]])
+    if varCatConvert==1: return output #.join(df[[target]])
     for col in output.columns:
         # X[col] = X[col].astype('category',copy=False)
         dummies = pd.get_dummies(output[col], prefix=col + '___')

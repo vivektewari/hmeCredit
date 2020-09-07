@@ -56,10 +56,11 @@ def aggregation(df1, rollupKey ='', monthVar='', aggFunc={}, monthList=[12, 36, 
         df_uniques=df_uniques.join(df_temp,on=[rollupKey])
 
     return df_uniques.fillna(0)
-def crossVariable(df1,combination=None,target=None,varlist=None,ignoreList=None,numVar=0):
+def crossVariable(df1,combination=None,target=None,varlist=None,ignoreList=None,numVar=0,memmorSaving=1):
     if varlist==None:varlist=df1.columns
     elif ignoreList==None:varlist=list(set(df1.columns)-set(ignoreList))
     df=df1[[]]
+    if memmorSaving != 1: df=df1.drop(target,axis=1)
     if combination is None:combs=combinations(varlist, 2)
     else:combs=combination
     for comb in combs:
@@ -78,6 +79,7 @@ def crossVariable(df1,combination=None,target=None,varlist=None,ignoreList=None,
             except TypeError:
                 print(comb[0] + "_&_" + comb[1] + "m")
                 pass
+
     if target is not None:df[target]=df1[target]
     return df #.replace(np.inf,np.nan)
 #low ram
@@ -86,7 +88,7 @@ def getIVForCross(df1, combination, target, number, loc,groupByKey=None):
 
 
     if groupByKey is not None:
-        temp = crossVariable(df1, combination, target=target, varlist=None, ignoreList=None,numVar=1)
+        temp = crossVariable(df1, combination, target=target, varlist=None, ignoreList=None,numVar=1,memmorSaving=0)
         #temp=temp.fillna(-579579)
         temp=temp.groupby(groupByKey).agg(['min', 'max','sum','mean'])
         temp.columns = [str("_").join(col).strip() for col in temp.columns.values]

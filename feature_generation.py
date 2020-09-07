@@ -16,7 +16,7 @@ start = time.time()
 #         main = pd.read_csv('/home/pooja/PycharmProjects/datanalysis/featureEngeering/train' + str(i) + ".csv")
 #         main.to_csv('/home/pooja/PycharmProjects/datanalysis/featureEngeering/train'  + ".csv",mode = 'a', header = False)
 if __name__ == "__main__":
-    job=3
+    job=4
     #s_POS_CASH_balance=pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets//POS_CASH_balance.csv")
     data = pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets/train.csv")
     target = data.set_index('SK_ID_CURR')[['TARGET']]
@@ -62,6 +62,16 @@ if __name__ == "__main__":
     #x=crossVariablelowRam(data.drop('TARGET',axis=1).set_index('SK_ID_CURR'),target,ignoreList=['SK_ID_PREV','Unnamed: 0','SK_ID_CURR','TARGET'],target='TARGET',batch=10,loc="/home/pooja/PycharmProjects/datanalysis/featureEngeering/train")
     #q=past(s_POS_CASH_balance,'SK_ID_CURR','MONTHS_BALANCE')
     pass
+    if job ==4:
+        dataset=["train_.csv","prev.csv","pos.csv","credit.csv","bureau.csv","bureaubal.csv"]
+        iv=pd.read_csv("/home/pooja/PycharmProjects/datanalysis/featureEngeering/train_.csv")
+        iv['dataset']='train'
+        iv.to_csv("/home/pooja/PycharmProjects/datanalysis/featureEngeering/allIV.csv")
+        for i in range(1,6):
+            temp=pd.read_csv("/home/pooja/PycharmProjects/datanalysis/featureEngeering/"+dataset[i])
+            temp['dataset']=dataset[i]
+            iv=temp.to_csv("/home/pooja/PycharmProjects/datanalysis/featureEngeering/allIV.csv",mode = 'a', header = False)
+
     if job==20:
         prev = pd.read_csv("/home/pooja/PycharmProjects/datanalysis/relevantDatasets/previous_application.csv")
         prev=prev.set_index('SK_ID_CURR')[['AMT_ANNUITY','AMT_APPLICATION']]
